@@ -4,7 +4,12 @@ import RecipeDetail from '../components/RecipeDetail.vue';
 
 const routes = [
     { path: '/', component: SearchRecipes },
-    { path: '/recipe/:id', component: RecipeDetail, props: true }, // New dynamic route
+    { 
+        path: '/recipe/:id', 
+        component: RecipeDetail, 
+        props: true, 
+        key: (route: { params: { id: any; }; }) => route.params.id // 
+    }
 ];
 
 const router = createRouter({

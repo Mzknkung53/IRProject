@@ -1,24 +1,38 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-const query = ref('');
-const recipes = ref<any[]>([]);
-const currentPage = ref(1);
+const router = useRouter();
+const query = ref(sessionStorage.getItem('searchQuery') || ''); // Restore saved query
+const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]')); // Restore saved results
+const currentPage = ref(parseInt(sessionStorage.getItem('currentPage') || '1'));
 const resultsPerPage = 10;
-const columnsPerRow = 5; // 5 recipes per row
-const maxDescriptionLength = 100; // Limit description length
-const maxTitleLength = 40; // Ensure title length consistency
+const columnsPerRow = 5;
+const maxDescriptionLength = 100;
+const maxTitleLength = 40;
 
 const searchRecipes = async () => {
     if (!query.value) return;
     try {
         const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}`);
         recipes.value = response.data.results;
+
+        // ✅ Save query and results in sessionStorage
+        sessionStorage.setItem('searchQuery', query.value);
+        sessionStorage.setItem('searchResults', JSON.stringify(recipes.value));
+        sessionStorage.setItem('currentPage', currentPage.value.toString());
     } catch (error) {
         console.error('Error fetching recipes:', error);
     }
 };
+
+// Restore previous search on component mount
+onMounted(() => {
+    if (query.value && recipes.value.length === 0) {
+        searchRecipes();
+    }
+});
 
 // Compute paginated results
 const paginatedResults = computed(() => {
@@ -28,15 +42,13 @@ const paginatedResults = computed(() => {
 
 // Function to shorten long descriptions
 const truncateText = (text: string, limit: number) => {
-    if (text.length > limit) {
-        return text.substring(0, limit) + "...";
-    }
-    return text;
+    return text.length > limit ? text.substring(0, limit) + "..." : text;
 };
 
 // Change page function for pagination
 const changePage = (step: number) => {
     currentPage.value += step;
+    sessionStorage.setItem('currentPage', currentPage.value.toString()); // ✅ Save current page
 };
 </script>
 
@@ -53,7 +65,7 @@ const changePage = (step: number) => {
                 <router-link 
                     :to="`/recipe/${recipe.recipe_id}`" 
                     class="recipe-card" 
-                    v-for="recipe in paginatedResults.slice(index * columnsPerRow, (index + 1) * columnsPerRow)" 
+                    v-for="recipe in paginatedResults" 
                     :key="recipe.recipe_id"
                 >
                     <img :src="Array.isArray(recipe.image_url) ? recipe.image_url[0] : recipe.image_url" :alt="recipe.name">
