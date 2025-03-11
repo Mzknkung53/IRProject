@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 
 const router = useRouter();
-const query = ref(sessionStorage.getItem('searchQuery') || ''); // Restore saved query
-const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]')); // Restore saved results
+const query = ref(sessionStorage.getItem('searchQuery') || '');
+const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]'));
 const currentPage = ref(parseInt(sessionStorage.getItem('currentPage') || '1'));
 const resultsPerPage = 10;
 const columnsPerRow = 5;
@@ -53,6 +53,21 @@ const changePage = (step: number) => {
 </script>
 
 <template>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <!-- Bookmarks (icon + text, no box) -->
+        <span class="nav-item bookmarks">
+            <img src="../assets/Star.png" alt="Bookmarks" class="icon" />
+            Bookmarks
+        </span>
+
+        <!-- Login (icon + text, boxed style) -->
+        <router-link class="nav-item login" to="/login">
+            <img src="../assets/LoginIcon.jpg" alt="Login Icon" class="icon" />
+            Login
+        </router-link>
+    </nav>
+
     <div class="container">
         <h1>Recipe Search</h1>
         <div class="search-bar">
@@ -61,14 +76,12 @@ const changePage = (step: number) => {
         </div>
 
         <div class="results">
-            <div class="recipe-row" v-for="(row, index) in Math.ceil(paginatedResults.length / columnsPerRow)" :key="index">
-                <router-link 
-                    :to="`/recipe/${recipe.recipe_id}`" 
-                    class="recipe-card" 
-                    v-for="recipe in paginatedResults" 
-                    :key="recipe.recipe_id"
-                >
-                    <img :src="Array.isArray(recipe.image_url) ? recipe.image_url[0] : recipe.image_url" :alt="recipe.name">
+            <div class="recipe-row" v-for="(row, index) in Math.ceil(paginatedResults.length / columnsPerRow)"
+                :key="index">
+                <router-link :to="`/recipe/${recipe.recipe_id}`" class="recipe-card" v-for="recipe in paginatedResults"
+                    :key="recipe.recipe_id">
+                    <img :src="Array.isArray(recipe.image_url) ? recipe.image_url[0] : recipe.image_url"
+                        :alt="recipe.name">
                     <div class="recipe-details">
                         <h3 class="recipe-title">
                             {{ truncateText(recipe.name, maxTitleLength) }}
@@ -77,7 +90,7 @@ const changePage = (step: number) => {
                             <span class="short-text">{{ truncateText(recipe.description, maxDescriptionLength) }}</span>
                         </p>
                         <p class="recipe-calories">
-                            <strong>Calories:</strong> {{ recipe.calories }} | 
+                            <strong>Calories:</strong> {{ recipe.calories }} |
                             <strong>Rating:</strong> ⭐ {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : "N/A" }}
                         </p>
                     </div>
@@ -85,16 +98,21 @@ const changePage = (step: number) => {
             </div>
         </div>
 
-        <!-- Pagination -->
-        <div class="pagination">
+        <div v-if="recipes.length > 0" class="pagination">
             <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">Previous</button>
             <span>Page {{ currentPage }}</span>
-            <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= recipes.length" class="pagination-button">Next</button>
+            <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= recipes.length"
+                class="pagination-button">Next</button>
         </div>
     </div>
 </template>
 
 <style scoped>
+body {
+    margin: 0;
+    padding: 0;
+}
+
 /* Center container */
 .container {
     max-width: 1100px;
@@ -148,8 +166,10 @@ button:hover {
 
 /* Recipe Card */
 .recipe-card {
-    text-decoration: none; /* Removes link underline */
-    color: inherit; /* Keeps text color the same */
+    text-decoration: none;
+    /* Removes link underline */
+    color: inherit;
+    /* Keeps text color the same */
     border: 1px solid #ddd;
     padding: 0;
     background: #fff;
@@ -225,9 +245,15 @@ img {
     z-index: 10;
 }
 
+/* Show full text on hover */
+.recipe-description:hover .full-text {
+    display: block;
+}
+
 /* Pagination - Fixed positioning */
 .pagination {
-    margin-top: 40px; /* 🔥 Added extra space */
+    margin-top: 40px;
+    /* Extra space */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -249,8 +275,63 @@ img {
     background-color: darkred;
 }
 
-/* Show full text on hover */
-.recipe-description:hover .full-text {
-    display: block;
+/* NavBar */
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: red;
+    padding: 15px;
+    color: white;
+    font-size: 18px;
+    /* If you want it pinned at the very top:
+     position: fixed;
+     top: 0;
+     width: 100%;
+     z-index: 999;
+  */
+}
+
+/* Generic nav items */
+.nav-item {
+    cursor: pointer;
+}
+
+/* Bookmarks (icon + text, no box) */
+.bookmarks {
+    display: inline-flex;
+    align-items: center;
+}
+
+.bookmarks .icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+}
+
+/* Login (icon + text, with box) */
+.login {
+    display: inline-flex;
+    align-items: center;
+    background-color: white;
+    /* Box color */
+    color: red;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-weight: bold;
+    margin-left: auto;
+    /* Keep it on the far right if needed */
+}
+
+.login .icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+}
+
+/* Hover effect for login button */
+.login:hover {
+    background-color: #f0f0f0;
 }
 </style>
