@@ -24,6 +24,7 @@ const goToRegister = () => {
     router.push('/register')
 }
 </script>
+
 <template>
     <div class="login-page">
         <div class="form-container">
@@ -43,6 +44,7 @@ const goToRegister = () => {
         </div>
     </div>
 </template>
+
 <style scoped>
 /* Center the login card vertically and horizontally */
 .login-page {
@@ -50,9 +52,7 @@ const goToRegister = () => {
     justify-content: center;
     align-items: center;
     min-height: 80vh;
-    /* Adjust as needed */
     background-color: #f5f5f5;
-    /* Light background */
 }
 
 /* Card-like container */
@@ -91,9 +91,10 @@ input {
 
 /* Login button */
 .login-button {
-    width: 100%;
+    width: 80%;
+    max-width: 200px;
     padding: 0.75rem;
-    margin-top: 0.5rem;
+    margin: 0.5rem auto 0;
     font-weight: bold;
     border: none;
     border-radius: 5px;
@@ -101,6 +102,7 @@ input {
     background-color: red;
     color: white;
     font-size: 1rem;
+    display: block;
 }
 
 .login-button:hover {
@@ -109,9 +111,10 @@ input {
 
 /* Register button */
 .register-button {
-    width: 100%;
+    width: 80%;
+    max-width: 200px;
     padding: 0.75rem;
-    margin-top: 1rem;
+    margin: 1rem auto 0;
     font-weight: bold;
     border: 2px solid red;
     border-radius: 5px;
@@ -119,6 +122,7 @@ input {
     background-color: #fff;
     color: red;
     font-size: 1rem;
+    display: block;
 }
 
 .register-button:hover {
