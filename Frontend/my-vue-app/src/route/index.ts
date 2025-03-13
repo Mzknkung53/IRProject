@@ -3,6 +3,7 @@ import SearchRecipes from '../components/SearchRecipes.vue'
 import RecipeDetail from '../components/RecipeDetail.vue'
 import Login from '../components/Login.vue'
 import Register from '../components/Register.vue'
+import Bookmarks from '../components/Bookmarks.vue'  
 
 const routes = [
   { path: '/', component: SearchRecipes },
@@ -13,7 +14,8 @@ const routes = [
     key: (route: { params: { id: any } }) => route.params.id
   },
   { path: '/login', component: Login },
-  { path: '/register', component: Register }
+  { path: '/register', component: Register },
+  { path: '/bookmarks', component: Bookmarks } 
 ]
 
 const router = createRouter({

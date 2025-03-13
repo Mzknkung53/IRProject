@@ -89,13 +89,13 @@ const logout = async () => {
 <template>
   <!-- Navigation Bar -->
   <nav class="navbar">
-    <!-- Bookmarks -->
-    <span class="nav-item bookmarks">
+    <!-- Bookmarks link with background style -->
+    <router-link class="nav-item bookmarks" to="/bookmarks">
       <img src="../assets/Star.png" alt="Bookmarks" class="icon" />
       Bookmarks
-    </span>
+    </router-link>
 
-    <!-- If user is logged in: show username + Logout button -->
+    <!-- If user is logged in: show username and Logout button -->
     <div v-if="loggedInUsername" class="user-controls">
       <span class="nav-item username">
         <img src="../assets/LoginIcon.jpg" alt="User Icon" class="icon" />
@@ -103,8 +103,8 @@ const logout = async () => {
       </span>
       <button class="logout-button" @click="logout">Logout</button>
     </div>
-
-    <!-- If user is not logged in: show Login link (this case might not appear if you redirect) -->
+    
+    <!-- If user is not logged in (this block likely won't show if redirected) -->
     <router-link v-else class="nav-item login" to="/login">
       <img src="../assets/LoginIcon.jpg" alt="Login Icon" class="icon" />
       Login
@@ -311,9 +311,9 @@ img {
   display: block;
 }
 
-/* Pagination - Fixed positioning */
+/* Pagination */
 .pagination {
-  margin-top: 40px; /* Extra space */
+  margin-top: 40px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -346,26 +346,35 @@ img {
   font-size: 18px;
 }
 
-/* Bookmarks (icon + text, no box) */
-.bookmarks {
+/* Bookmarks (icon + text, styled like a button) */
+.nav-item.bookmarks {
   display: inline-flex;
   align-items: center;
+  background-color: white;
+  color: red;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-weight: bold;
 }
 
-.bookmarks .icon {
+.nav-item.bookmarks .icon {
   width: 20px;
   height: 20px;
   margin-right: 8px;
 }
 
-/* User controls container (username + logout button) */
+.nav-item.bookmarks:hover {
+  background-color: #f0f0f0;
+}
+
+/* User controls (username + logout) */
 .user-controls {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-/* The username text */
 .username {
   display: inline-flex;
   align-items: center;
@@ -377,14 +386,12 @@ img {
   font-weight: bold;
 }
 
-/* Icon for the username */
 .username .icon {
   width: 20px;
   height: 20px;
   margin-right: 8px;
 }
 
-/* The logout button next to the username */
 .logout-button {
   background-color: white;
   color: red;
@@ -399,8 +406,8 @@ img {
   background-color: #f0f0f0;
 }
 
-/* The 'Login' link (if not logged in) */
-.login {
+/* Login link (if not logged in) */
+.nav-item.login {
   display: inline-flex;
   align-items: center;
   background-color: white;
@@ -412,13 +419,13 @@ img {
   margin-left: auto;
 }
 
-.login .icon {
+.nav-item.login .icon {
   width: 20px;
   height: 20px;
   margin-right: 8px;
 }
 
-.login:hover {
+.nav-item.login:hover {
   background-color: #f0f0f0;
 }
 </style>
