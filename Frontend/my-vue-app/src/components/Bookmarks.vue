@@ -8,10 +8,16 @@ const errorMessage = ref('');
 const fetchBookmarks = async () => {
   try {
     const token = localStorage.getItem('token');
+
     const response = await axios.get('http://127.0.0.1:5000/bookmarks', {
       headers: { Authorization: `Bearer ${token}` }
     });
-    folders.value = response.data.folders || [];
+
+    if (response.data.folders.length === 0) {
+      errorMessage.value = "You don't have any bookmarks yet.";
+    } else {
+      folders.value = response.data.folders;
+    }
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Failed to fetch bookmarks.';
   }
@@ -29,19 +35,14 @@ onMounted(() => {
     <div v-else>
       <div v-if="folders.length === 0">No bookmarks found.</div>
       <div v-else>
-        <div
-          v-for="folder in folders"
-          :key="folder.folder_id"
-          class="folder-section"
-        >
+        <div v-for="folder in folders" :key="folder.folder_id" class="folder-section">
           <h2>{{ folder.folder_name }}</h2>
           <ul>
-            <li
-              v-for="recipe in folder.recipes"
-              :key="recipe.recipe_id"
-            >
-              Recipe ID: {{ recipe.recipe_id }},
-              Rating: {{ recipe.rating }}
+            <li v-for="recipe in folder.recipes" :key="recipe.recipe_id">
+              <router-link :to="`/recipe/${recipe.recipe_id}`">
+                Recipe ID: {{ recipe.recipe_id }},
+                Rating: ⭐{{ recipe.rating }}
+              </router-link>
             </li>
           </ul>
         </div>

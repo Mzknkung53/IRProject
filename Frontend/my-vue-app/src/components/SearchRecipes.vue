@@ -11,6 +11,7 @@ const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') ||
 
 const resultsPerPage = 10;
 const columnsPerRow = 5;
+const totalRecipesCount = ref(0);
 
 const currentPage = ref(parseInt(route.params.pageNumber as string) || 1);
 
@@ -43,8 +44,9 @@ const searchRecipes = async () => {
   if (!query.value) return;
 
   try {
-    const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}`);
+    const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}&page=${currentPage.value}`);
     recipes.value = response.data.results;
+    totalRecipesCount.value = response.data.total_count;
     sessionStorage.setItem('searchQuery', query.value);
     sessionStorage.setItem('searchResults', JSON.stringify(recipes.value));
     sessionStorage.setItem('currentPage', currentPage.value.toString());
@@ -53,6 +55,7 @@ const searchRecipes = async () => {
     console.error('Error fetching recipes:', error);
   }
 };
+
 
 // Get the current page slice
 const paginatedResults = computed(() => {
@@ -137,16 +140,9 @@ watch(() => route.params.pageNumber, (newPage) => {
       <!-- Loop over each "row" of chunkedResults -->
       <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
         <!-- Loop over each recipe in this row -->
-        <router-link
-          v-for="recipe in row"
-          :key="recipe.recipe_id"
-          :to="`/recipe/${recipe.recipe_id}`"
-          class="recipe-card"
-        >
-          <img
-            :src="Array.isArray(recipe.image_url) ? recipe.image_url[0] : recipe.image_url"
-            :alt="recipe.name"
-          />
+        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`"
+          class="recipe-card">
+          <img :src="Array.isArray(recipe.image_url) ? recipe.image_url[0] : recipe.image_url" :alt="recipe.name" />
           <div class="recipe-details">
             <h3 class="recipe-title">
               {{ truncateText(recipe.name, maxTitleLength) }}
@@ -167,21 +163,15 @@ watch(() => route.params.pageNumber, (newPage) => {
     </div>
 
     <div v-if="recipes.length > 0" class="pagination">
-      <button
-        @click="changePage(-1)"
-        :disabled="currentPage === 1"
-        class="pagination-button"
-      >
+      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">
         Previous
       </button>
       <span>Page {{ currentPage }}</span>
-      <button
-        @click="changePage(1)"
-        :disabled="(currentPage * resultsPerPage) >= recipes.length"
-        class="pagination-button"
-      >
+      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount"
+        class="pagination-button">
         Next
       </button>
+
     </div>
   </div>
 </template>
