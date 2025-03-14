@@ -1,41 +1,40 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
-// Vue Router
+const route = useRoute();
 const router = useRouter();
 
-// Reactive state for recipes and search
 const query = ref(sessionStorage.getItem('searchQuery') || '');
 const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]'));
-const currentPage = ref(parseInt(sessionStorage.getItem('currentPage') || '1'));
+
 const resultsPerPage = 10;
 const columnsPerRow = 5;
+
+const currentPage = ref(parseInt(route.params.pageNumber as string) || 1);
+
 const maxDescriptionLength = 100;
 const maxTitleLength = 40;
 
-// Track logged-in username
+const errorMessage = ref('');
+
 const loggedInUsername = ref<string | null>(null);
 
-// onMounted: check if user is logged in
 onMounted(() => {
   const storedUsername = localStorage.getItem('username');
   if (storedUsername) {
     loggedInUsername.value = storedUsername;
   } else {
-    // If not logged in, force them to login
     router.push('/login');
     return;
   }
-
-  // If we already have a saved query but no results, fetch them
   if (query.value && recipes.value.length === 0) {
     searchRecipes();
   }
 });
 
-// Search function (requires login)
+// Fetch from /search
 const searchRecipes = async () => {
   if (!loggedInUsername.value) {
     router.push('/login');
@@ -46,56 +45,72 @@ const searchRecipes = async () => {
   try {
     const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}`);
     recipes.value = response.data.results;
-
-    // Save query/results in sessionStorage
     sessionStorage.setItem('searchQuery', query.value);
     sessionStorage.setItem('searchResults', JSON.stringify(recipes.value));
     sessionStorage.setItem('currentPage', currentPage.value.toString());
   } catch (error) {
+    errorMessage.value = 'Error fetching recipes.';
     console.error('Error fetching recipes:', error);
   }
 };
 
-// Pagination
+// Get the current page slice
 const paginatedResults = computed(() => {
   const start = (currentPage.value - 1) * resultsPerPage;
   return recipes.value.slice(start, start + resultsPerPage);
 });
 
-// Truncate text
+// Split paginatedResults into rows
+const chunkedResults = computed(() => {
+  const chunks = [];
+  for (let i = 0; i < paginatedResults.value.length; i += columnsPerRow) {
+    chunks.push(paginatedResults.value.slice(i, i + columnsPerRow));
+  }
+  return chunks;
+});
+
+// Truncate helper
 const truncateText = (text: string, limit: number) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
-// Change page
+// Pagination
 const changePage = (step: number) => {
   currentPage.value += step;
   sessionStorage.setItem('currentPage', currentPage.value.toString());
+  router.push(`/page/${currentPage.value}`);
 };
 
-// Logout method
+// Logout
 const logout = async () => {
   try {
-    await axios.post('http://127.0.0.1:5000/logout');  // Calls your Flask /logout endpoint
+    const token = localStorage.getItem('token');
+    await axios.post('http://127.0.0.1:5000/logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     localStorage.removeItem('username');
+    localStorage.removeItem('token');
     loggedInUsername.value = null;
     router.push('/login');
   } catch (error) {
     console.error('Logout error:', error);
   }
 };
+
+// Watch route changes to update currentPage
+watch(() => route.params.pageNumber, (newPage) => {
+  if (newPage) {
+    currentPage.value = parseInt(newPage as string);
+  }
+});
 </script>
 
 <template>
-  <!-- Navigation Bar -->
   <nav class="navbar">
-    <!-- Bookmarks link with background style -->
     <router-link class="nav-item bookmarks" to="/bookmarks">
       <img src="../assets/Star.png" alt="Bookmarks" class="icon" />
       Bookmarks
     </router-link>
-
-    <!-- If user is logged in: show username and Logout button -->
     <div v-if="loggedInUsername" class="user-controls">
       <span class="nav-item username">
         <img src="../assets/LoginIcon.jpg" alt="User Icon" class="icon" />
@@ -103,8 +118,6 @@ const logout = async () => {
       </span>
       <button class="logout-button" @click="logout">Logout</button>
     </div>
-    
-    <!-- If user is not logged in (this block likely won't show if redirected) -->
     <router-link v-else class="nav-item login" to="/login">
       <img src="../assets/LoginIcon.jpg" alt="Login Icon" class="icon" />
       Login
@@ -118,14 +131,14 @@ const logout = async () => {
       <button @click="searchRecipes">Search</button>
     </div>
 
+    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+
     <div class="results">
-      <div
-        class="recipe-row"
-        v-for="(row, index) in Math.ceil(paginatedResults.length / columnsPerRow)"
-        :key="index"
-      >
+      <!-- Loop over each "row" of chunkedResults -->
+      <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
+        <!-- Loop over each recipe in this row -->
         <router-link
-          v-for="recipe in paginatedResults"
+          v-for="recipe in row"
           :key="recipe.recipe_id"
           :to="`/recipe/${recipe.recipe_id}`"
           class="recipe-card"
@@ -139,11 +152,14 @@ const logout = async () => {
               {{ truncateText(recipe.name, maxTitleLength) }}
             </h3>
             <p class="recipe-description">
-              <span class="short-text">{{ truncateText(recipe.description, maxDescriptionLength) }}</span>
+              <span class="short-text">
+                {{ truncateText(recipe.description, maxDescriptionLength) }}
+              </span>
             </p>
             <p class="recipe-calories">
               <strong>Calories:</strong> {{ recipe.calories }} |
-              <strong>Rating:</strong> ⭐ {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : 'N/A' }}
+              <strong>Rating:</strong> ⭐
+              {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : 'N/A' }}
             </p>
           </div>
         </router-link>
@@ -176,7 +192,7 @@ body {
   padding: 0;
 }
 
-/* Center container */
+/* Container */
 .container {
   max-width: 1100px;
   margin: 0 auto;
@@ -198,7 +214,6 @@ input {
   border-radius: 5px;
 }
 
-/* Style Search Button */
 button {
   padding: 10px 15px;
   cursor: pointer;
@@ -214,7 +229,7 @@ button:hover {
   background-color: darkred;
 }
 
-/* Recipe Grid */
+/* Results */
 .results {
   display: flex;
   flex-direction: column;
@@ -227,10 +242,9 @@ button:hover {
   gap: 20px;
 }
 
-/* Recipe Card */
 .recipe-card {
-  text-decoration: none; /* Removes link underline */
-  color: inherit;        /* Keeps text color the same */
+  text-decoration: none;
+  color: inherit;
   border: 1px solid #ddd;
   padding: 0;
   background: #fff;
@@ -249,22 +263,19 @@ button:hover {
   transform: scale(1.05);
 }
 
-/* Image Styling - Expanded */
-img {
+.recipe-card img {
   width: 100%;
   height: 180px;
   object-fit: cover;
   border-bottom: 2px solid #ddd;
 }
 
-/* Recipe Details - Background */
 .recipe-details {
   background: #f8f8f8;
   padding: 10px;
   min-height: 120px;
 }
 
-/* Make all text sections the same height */
 .recipe-title {
   font-size: 1.2em;
   font-weight: bold;
@@ -276,39 +287,15 @@ img {
   display: block;
 }
 
-/* Description with Hover Animation */
 .recipe-description {
   position: relative;
   min-height: 60px;
   font-size: 14px;
-  text-overflow: ellipsis;
   overflow: hidden;
 }
 
-/* Short text (truncated version) */
 .short-text {
   display: inline;
-}
-
-/* Full text (hidden by default) */
-.full-text {
-  display: none;
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  width: 250px;
-  background: white;
-  padding: 10px;
-  border: 1px solid #ddd;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
-  border-radius: 5px;
-  z-index: 10;
-}
-
-/* Show full text on hover */
-.recipe-description:hover .full-text {
-  display: block;
 }
 
 /* Pagination */
@@ -320,7 +307,6 @@ img {
   gap: 10px;
 }
 
-/* Pagination Button Styling */
 .pagination-button {
   padding: 8px 15px;
   background-color: red;
@@ -346,7 +332,6 @@ img {
   font-size: 18px;
 }
 
-/* Bookmarks (icon + text, styled like a button) */
 .nav-item.bookmarks {
   display: inline-flex;
   align-items: center;
@@ -368,7 +353,6 @@ img {
   background-color: #f0f0f0;
 }
 
-/* User controls (username + logout) */
 .user-controls {
   display: flex;
   align-items: center;
@@ -406,7 +390,6 @@ img {
   background-color: #f0f0f0;
 }
 
-/* Login link (if not logged in) */
 .nav-item.login {
   display: inline-flex;
   align-items: center;

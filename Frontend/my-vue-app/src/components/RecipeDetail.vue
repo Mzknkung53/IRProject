@@ -8,16 +8,14 @@ const router = useRouter();
 
 const recipe = ref<any>(null);
 
-// Modal state and bookmark form fields
 const showBookmarkModal = ref(false);
 const folderName = ref('');
 const rating = ref(5);
 const successMessage = ref('');
 const errorMessage = ref('');
 
-// Fetch recipe details
 const fetchRecipeDetails = async (recipeId: string) => {
-  recipe.value = null; // Reset state before fetching new data
+  recipe.value = null;
   try {
     const response = await axios.get(`http://127.0.0.1:5000/recipe/${recipeId}`);
     recipe.value = response.data;
@@ -26,7 +24,7 @@ const fetchRecipeDetails = async (recipeId: string) => {
   }
 };
 
-// Initialize on mount
+
 onMounted(() => {
   fetchRecipeDetails(route.params.id as string);
 });
@@ -59,11 +57,20 @@ const addBookmark = async () => {
   }
   try {
     const payload = {
+      user_id: localStorage.getItem("user_id"),
       recipe_id: recipe.value.recipe_id,
       folder_name: folderName.value,
       rating: rating.value
     };
-    const response = await axios.post('http://127.0.0.1:5000/bookmark', payload);
+
+    const token = localStorage.getItem('token');
+
+    const response = await axios.post('http://127.0.0.1:5000/bookmark', payload, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
     successMessage.value = response.data.message || 'Bookmark added!';
     errorMessage.value = '';
   } catch (err: any) {
@@ -72,9 +79,7 @@ const addBookmark = async () => {
   }
 };
 
-// Optional: close modal if user clicks outside content
 const closeModalIfOverlayClicked = (event: MouseEvent) => {
-  // Only close if the user clicked directly on the overlay, not inside the modal
   if ((event.target as HTMLElement).classList.contains('modal-overlay')) {
     showBookmarkModal.value = false;
   }
@@ -109,21 +114,12 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
     </button>
 
     <!-- Bookmark Modal -->
-    <div 
-      v-if="showBookmarkModal" 
-      class="modal-overlay"
-      @click="closeModalIfOverlayClicked"
-    >
+    <div v-if="showBookmarkModal" class="modal-overlay" @click="closeModalIfOverlayClicked">
       <div class="modal-content">
         <h2>Add Bookmark</h2>
         <div class="form-group">
           <label for="folder">Folder Name</label>
-          <input
-            id="folder"
-            type="text"
-            v-model="folderName"
-            placeholder="Enter folder name"
-          />
+          <input id="folder" type="text" v-model="folderName" placeholder="Enter folder name" />
         </div>
 
         <div class="form-group">
@@ -192,6 +188,7 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   border-radius: 5px;
   cursor: pointer;
 }
+
 .bookmark-button:hover,
 .back-button:hover {
   background-color: darkred;
@@ -204,7 +201,8 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.6); /* semi-transparent overlay */
+  background-color: rgba(0, 0, 0, 0.6);
+  /* semi-transparent overlay */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -231,11 +229,13 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
 .form-group {
   margin-bottom: 15px;
 }
+
 .form-group label {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
 }
+
 .form-group input,
 .form-group select {
   width: 100%;
@@ -251,6 +251,7 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   margin-top: 10px;
   text-align: center;
 }
+
 .error-message {
   color: red;
   margin-top: 10px;
@@ -274,17 +275,21 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   cursor: pointer;
   font-weight: bold;
 }
+
 .cancel-button {
   background-color: #555;
   color: white;
 }
+
 .cancel-button:hover {
   background-color: #333;
 }
+
 .save-button {
   background-color: red;
   color: white;
 }
+
 .save-button:hover {
   background-color: darkred;
 }

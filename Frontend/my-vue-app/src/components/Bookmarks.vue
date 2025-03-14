@@ -7,7 +7,10 @@ const errorMessage = ref('');
 
 const fetchBookmarks = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:5000/bookmarks');
+    const token = localStorage.getItem('token');
+    const response = await axios.get('http://127.0.0.1:5000/bookmarks', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
     folders.value = response.data.folders || [];
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Failed to fetch bookmarks.';
