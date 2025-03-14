@@ -22,6 +22,7 @@ const login = async () => {
     })
     console.log('Login successful:', response.data)
     // Store the username (or token) locally
+    localStorage.setItem('token', response.data.token)
     localStorage.setItem('username', response.data.username)
     // Redirect to home page
     router.push('/')
