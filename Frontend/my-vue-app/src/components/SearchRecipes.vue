@@ -6,43 +6,58 @@ import axios from 'axios';
 const route = useRoute();
 const router = useRouter();
 
+// Reactive data
 const query = ref(sessionStorage.getItem('searchQuery') || '');
 const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]'));
+const recommendations = ref<any[]>([]);
 
 const resultsPerPage = 10;
 const columnsPerRow = 5;
 const totalRecipesCount = ref(0);
-
 const currentPage = ref(parseInt(route.params.pageNumber as string) || 1);
-
 const maxDescriptionLength = 100;
 const maxTitleLength = 40;
-
 const errorMessage = ref('');
-
 const loggedInUsername = ref<string | null>(null);
 
-onMounted(() => {
-  const storedUsername = localStorage.getItem('username');
-  if (storedUsername) {
-    loggedInUsername.value = storedUsername;
-  } else {
-    router.push('/login');
-    return;
+// Helper to return a valid image URL or fallback placeholder
+const getImageUrl = (image: string | string[]) => {
+  if (!image) return "https://via.placeholder.com/150";
+  if (Array.isArray(image)) {
+    return image.length > 0 ? image[0] : "https://via.placeholder.com/150";
   }
-  if (query.value && recipes.value.length === 0) {
-    searchRecipes();
+  return image;
+};
+
+// Computed property: Show full recommendations if there's no search query, otherwise return an empty array.
+const recommendedDisplay = computed(() => {
+  if (!query.value) {
+    return recommendations.value;
+  } else {
+    return [];
   }
 });
 
-// Fetch from /search
+// Fetch recommendations from the backend
+const fetchRecommendations = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get('http://127.0.0.1:5000/recommendations', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    recommendations.value = response.data.recommendations || [];
+  } catch (error) {
+    console.error("Error fetching recommendations:", error);
+  }
+};
+
+// Fetch search results from /search
 const searchRecipes = async () => {
   if (!loggedInUsername.value) {
     router.push('/login');
     return;
   }
   if (!query.value) return;
-
   try {
     const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}&page=${currentPage.value}`);
     recipes.value = response.data.results;
@@ -56,14 +71,13 @@ const searchRecipes = async () => {
   }
 };
 
-
-// Get the current page slice
+// Paginate recipes
 const paginatedResults = computed(() => {
   const start = (currentPage.value - 1) * resultsPerPage;
   return recipes.value.slice(start, start + resultsPerPage);
 });
 
-// Split paginatedResults into rows
+// Split paginated results into rows
 const chunkedResults = computed(() => {
   const chunks = [];
   for (let i = 0; i < paginatedResults.value.length; i += columnsPerRow) {
@@ -72,19 +86,19 @@ const chunkedResults = computed(() => {
   return chunks;
 });
 
-// Truncate helper
+// Helper to truncate text
 const truncateText = (text: string, limit: number) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
-// Pagination
+// Change page (next/previous)
 const changePage = (step: number) => {
   currentPage.value += step;
   sessionStorage.setItem('currentPage', currentPage.value.toString());
   router.push(`/page/${currentPage.value}`);
 };
 
-// Logout
+// Logout function
 const logout = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -100,10 +114,27 @@ const logout = async () => {
   }
 };
 
-// Watch route changes to update currentPage
+// Watch for route changes to update current page
 watch(() => route.params.pageNumber, (newPage) => {
   if (newPage) {
     currentPage.value = parseInt(newPage as string);
+  }
+});
+
+// On mount
+onMounted(() => {
+  const storedUsername = localStorage.getItem('username');
+  if (storedUsername) {
+    loggedInUsername.value = storedUsername;
+  } else {
+    router.push('/login');
+    return;
+  }
+  // Always fetch recommendations
+  fetchRecommendations();
+  // If there's a stored query but no recipes, fetch them
+  if (query.value && recipes.value.length === 0) {
+    searchRecipes();
   }
 });
 </script>
@@ -128,50 +159,55 @@ watch(() => route.params.pageNumber, (newPage) => {
   </nav>
 
   <div class="container">
-    <h1>Recipe Search</h1>
+    <!-- Recommendations Section: Only displays if there is no search query -->
+    <section class="recommendations-section" v-if="recommendedDisplay.length">
+      <h2>Recommended for You</h2>
+      <div class="recommendation-grid">
+        <div v-for="rec in recommendedDisplay" :key="rec.recipe_id" class="recipe-card">
+          <img :src="getImageUrl(rec.image_url)" :alt="rec.name" />
+          <div class="recipe-details">
+            <h3 class="recipe-title">{{ truncateText(rec.name, maxTitleLength) }}</h3>
+            <p class="recipe-description">{{ truncateText(rec.description, maxDescriptionLength) }}</p>
+            <p class="recipe-calories">
+              <strong>Calories:</strong> {{ rec.calories }} |
+              <strong>Rating:</strong> ⭐ {{ rec.rating > 0 ? rec.rating.toFixed(1) : 'N/A' }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search Bar -->
     <div class="search-bar">
       <input v-model="query" type="text" placeholder="Search for recipes..." />
       <button @click="searchRecipes">Search</button>
     </div>
 
+    <!-- Error Message -->
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-    <div class="results">
-      <!-- Loop over each "row" of chunkedResults -->
+    <!-- Search Results Section -->
+    <div v-if="recipes.length > 0" class="results">
       <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
-        <!-- Loop over each recipe in this row -->
-        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`"
-          class="recipe-card">
-          <img :src="Array.isArray(recipe.image_url) ? recipe.image_url[0] : recipe.image_url" :alt="recipe.name" />
+        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`" class="recipe-card">
+          <img :src="getImageUrl(recipe.image_url)" :alt="recipe.name" />
           <div class="recipe-details">
-            <h3 class="recipe-title">
-              {{ truncateText(recipe.name, maxTitleLength) }}
-            </h3>
-            <p class="recipe-description">
-              <span class="short-text">
-                {{ truncateText(recipe.description, maxDescriptionLength) }}
-              </span>
-            </p>
+            <h3 class="recipe-title">{{ truncateText(recipe.name, maxTitleLength) }}</h3>
+            <p class="recipe-description">{{ truncateText(recipe.description, maxDescriptionLength) }}</p>
             <p class="recipe-calories">
               <strong>Calories:</strong> {{ recipe.calories }} |
-              <strong>Rating:</strong> ⭐
-              {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : 'N/A' }}
+              <strong>Rating:</strong> ⭐ {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : 'N/A' }}
             </p>
           </div>
         </router-link>
       </div>
     </div>
 
+    <!-- Pagination Controls -->
     <div v-if="recipes.length > 0" class="pagination">
-      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">
-        Previous
-      </button>
+      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">Previous</button>
       <span>Page {{ currentPage }}</span>
-      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount"
-        class="pagination-button">
-        Next
-      </button>
-
+      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount" class="pagination-button">Next</button>
     </div>
   </div>
 </template>
@@ -185,8 +221,9 @@ body {
 /* Container */
 .container {
   max-width: 1100px;
-  margin: 0 auto;
+  margin: 80px auto 0 auto; /* 80px top margin to avoid fixed navbar overlap */
   text-align: center;
+  padding: 0 20px;
 }
 
 /* Search Bar */
@@ -320,6 +357,11 @@ button:hover {
   padding: 15px;
   color: white;
   font-size: 18px;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+  z-index: 1000;
 }
 
 .nav-item.bookmarks {
@@ -347,6 +389,7 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 1rem;
+  margin-right: 2rem; /* moves user/logout left */
 }
 
 .username {
@@ -400,5 +443,51 @@ button:hover {
 
 .nav-item.login:hover {
   background-color: #f0f0f0;
+}
+
+/* Recommendation Grid */
+.recommendation-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.recommendation-grid .recipe-card {
+  flex: 1 1 calc(20% - 20px);
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease-in-out;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.recommendation-grid .recipe-card:hover {
+  transform: scale(1.05);
+}
+
+.recommendation-grid .recipe-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.recommendation-grid .recipe-details {
+  padding: 10px;
+}
+
+.recommendation-grid .recipe-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.recommendation-grid .recipe-description {
+  font-size: 0.9em;
+  margin-bottom: 5px;
 }
 </style>
