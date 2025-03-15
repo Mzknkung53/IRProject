@@ -20,6 +20,9 @@ const maxTitleLength = 40;
 const errorMessage = ref('');
 const loggedInUsername = ref<string | null>(null);
 
+// For demonstration, a selected folder ID (adjust as needed)
+const selectedFolderId = ref('default-folder'); 
+
 // Helper to return a valid image URL or fallback placeholder
 const getImageUrl = (image: string | string[]) => {
   if (!image) return "https://via.placeholder.com/150";
@@ -114,6 +117,12 @@ const logout = async () => {
   }
 };
 
+// Button to navigate to the Suggestions page
+const goToSuggestions = () => {
+  // Navigate to '/suggestions' route and pass selectedFolderId as a query parameter
+  router.push({ path: '/suggestions', query: { folder_id: selectedFolderId.value } });
+};
+
 // Watch for route changes to update current page
 watch(() => route.params.pageNumber, (newPage) => {
   if (newPage) {
@@ -176,6 +185,12 @@ onMounted(() => {
         </div>
       </div>
     </section>
+
+    <!-- Buttons for Suggestions -->
+    <div class="suggestions-buttons">
+      <button @click="fetchRecommendations" class="refresh-button">Refresh Suggestions</button>
+      <button @click="goToSuggestions" class="goto-button">Get Suggestions</button>
+    </div>
 
     <!-- Search Bar -->
     <div class="search-bar">
@@ -253,6 +268,29 @@ button {
 }
 
 button:hover {
+  background-color: darkred;
+}
+
+/* Suggestions Buttons */
+.suggestions-buttons {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.refresh-button,
+.goto-button {
+  padding: 10px 15px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.refresh-button:hover,
+.goto-button:hover {
   background-color: darkred;
 }
 
