@@ -72,57 +72,52 @@ const addBookmark = async () => {
   }
 };
 
-// Close modal on overlay click
+// Close modal when overlay clicked
 const closeModalIfOverlayClicked = (event: MouseEvent) => {
   if ((event.target as HTMLElement).classList.contains('modal-overlay')) {
-    showBookmarkModal.value = false;
+    router.back();  // Close modal by going back
   }
 };
 </script>
 
 <template>
-  <!-- Back Button fixed top-left -->
-  <button class="back-button-fixed" @click="router.push('/')">← Back</button>
+  <div class="modal-overlay" @click="closeModalIfOverlayClicked">
+    <div class="modal-card" @click.stop>
+      <button class="close-button" @click="router.back()">✖</button>
 
-  <div v-if="recipe" class="recipe-detail-container">
-    <!-- Recipe Image Section -->
-    <div class="card section-image">
-      <img :src="recipe.image_url" alt="Recipe Image" class="recipe-image" />
-    </div>
+      <div v-if="recipe" class="recipe-content">
+        <div class="section-image">
+          <img :src="recipe.image_url" alt="Recipe Image" class="recipe-image" />
+        </div>
 
-    <!-- Recipe Info Section -->
-    <div class="card section-info">
-      <h1 class="recipe-title">{{ recipe.name }}</h1>
-      <div class="info-row">
-        <p><strong>Rating:</strong> ⭐ {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : "N/A" }}</p>
-        <p><strong>Calories:</strong> {{ recipe.calories }}</p>
+
+        <h1 class="recipe-title">{{ recipe.name }}</h1>
+        <div class="info-row">
+          <p><strong>Rating:</strong> ⭐ {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : "N/A" }}</p>
+          <p><strong>Calories:</strong> {{ recipe.calories }}</p>
+        </div>
+
+        <p class="description">{{ recipe.description }}</p>
+
+        <h2>Instructions</h2>
+        <ul v-if="recipe.instructions && recipe.instructions.length > 0" class="instructions-list">
+          <li v-for="(step, index) in recipe.instructions.split('. ') || []" :key="index">
+            {{ step }}
+          </li>
+        </ul>
+        <p v-else>No instructions available.</p>
+
+        <button class="bookmark-button" @click="toggleBookmarkModal">Bookmark This Recipe</button>
+      </div>
+
+      <div v-else class="loading-message">
+        <p>Loading recipe details...</p>
       </div>
     </div>
 
-    <!-- Description Section -->
-    <div class="card section-description">
-      <p>{{ recipe.description }}</p>
-    </div>
-
-    <!-- Instructions Section -->
-    <div class="card section-instructions">
-      <h2>Instructions</h2>
-      <ul v-if="recipe.instructions && recipe.instructions.length > 0" class="instructions-list">
-        <li v-for="(step, index) in recipe.instructions.split('. ') || []" :key="index">
-          {{ step }}
-        </li>
-      </ul>
-      <p v-else>No instructions available.</p>
-    </div>
-
-    <!-- Bookmark Button Section -->
-    <div class="bookmark-section">
-      <button class="bookmark-button" @click="toggleBookmarkModal">Bookmark This Recipe</button>
-    </div>
-
-    <!-- Bookmark Modal -->
-    <div v-if="showBookmarkModal" class="modal-overlay" @click="closeModalIfOverlayClicked">
-      <div class="modal-content" @click.stop>
+    <!-- Bookmark Modal Inside -->
+    <div v-if="showBookmarkModal" class="bookmark-modal-overlay" @click="closeModalIfOverlayClicked">
+      <div class="bookmark-modal-content" @click.stop>
         <h2>Add Bookmark</h2>
         <div class="form-group">
           <label>Folder Name</label>
@@ -146,128 +141,11 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
       </div>
     </div>
   </div>
-
-  <div v-else class="loading-message">
-    <p>Loading recipe details...</p>
-  </div>
 </template>
 
+
 <style scoped>
-/* Container */
-.recipe-detail-container {
-  max-width: 800px;
-  margin: 60px auto;
-  padding: 20px;
-  font-family: 'Arial', sans-serif;
-  color: #333;
-}
-
-/* Card style for each section */
-.card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Back Button Fixed Top-Left */
-.back-button-fixed {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  background-color: #f44336;
-  color: white;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-  z-index: 1000;
-}
-
-.back-button-fixed:hover {
-  background-color: #c62828;
-}
-
-/* Image Styling */
-.section-image {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.recipe-image {
-  width: 100%;
-  max-width: 400px;
-  border-radius: 10px;
-  object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Title and Info */
-.section-info {
-  text-align: center;
-}
-
-.recipe-title {
-  font-size: 1.8rem;
-  margin-bottom: 10px;
-  color: #2c3e50;
-}
-
-.info-row {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  font-size: 1rem;
-}
-
-/* Description */
-.section-description {
-  font-size: 1rem;
-  color: #555;
-  text-align: center;
-}
-
-/* Instructions */
-.section-instructions h2 {
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-  color: #2c3e50;
-}
-
-.instructions-list {
-  padding-left: 20px;
-  color: #444;
-  line-height: 1.6;
-}
-
-.instructions-list li {
-  margin-bottom: 10px;
-}
-
-/* Bookmark Button */
-.bookmark-section {
-  text-align: center;
-}
-
-.bookmark-button {
-  background-color: #f44336;
-  color: white;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.bookmark-button:hover {
-  background-color: #c62828;
-}
-
-/* Modal Styles */
+/* Overlay for modal effect */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -279,9 +157,117 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   justify-content: center;
   align-items: center;
   z-index: 999;
+  overflow-y: auto;
+  padding: 20px;
 }
 
-.modal-content {
+/* Main modal card */
+.modal-card {
+  background: white;
+  border-radius: 10px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;         /* 🔥 Prevent overflow beyond screen */
+  overflow-y: auto;         /* 🔥 Scroll if content too long */
+  padding: 25px 25px 25px 25px;
+  padding-top: 40px;        /* Space for close button */
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Close button */
+.close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 1001;
+}
+
+/* Image Styling */
+.section-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;  /* Push content down */
+}
+
+.recipe-image {
+  width: 250px;            /* 🔥 Fixed width */
+  height: 200px;           /* 🔥 Fixed height */
+  border-radius: 10px;
+  object-fit: cover;       /* Maintain aspect ratio */
+  margin: 20px auto;       /* Center and space */
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Title and Info */
+.recipe-title {
+  font-size: 1.8rem;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.info-row {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: #555;
+}
+
+.description {
+  text-align: center;
+  color: #666;
+  margin-bottom: 15px;
+}
+
+/* Instructions */
+.instructions-list {
+  padding-left: 20px;
+  color: #444;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+/* Bookmark Button */
+.bookmark-button {
+  background-color: #f44336;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  display: block;
+  margin: 0 auto;
+}
+
+.bookmark-button:hover {
+  background-color: #c62828;
+}
+
+/* Bookmark Modal */
+.bookmark-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+}
+
+.bookmark-modal-content {
   background: white;
   padding: 25px;
   border-radius: 8px;
@@ -291,11 +277,7 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
-.modal-content h2 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
+/* Form Elements */
 .form-group {
   margin-bottom: 15px;
 }
@@ -315,18 +297,7 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   border-radius: 5px;
 }
 
-.success {
-  color: green;
-  text-align: center;
-  margin-top: 10px;
-}
-
-.error {
-  color: red;
-  text-align: center;
-  margin-top: 10px;
-}
-
+/* Modal Buttons */
 .modal-buttons {
   display: flex;
   justify-content: space-between;
@@ -361,10 +332,23 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   background-color: #c62828;
 }
 
+/* Success/Error Messages */
+.success {
+  color: green;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-top: 10px;
+}
+
 /* Loading */
 .loading-message {
   text-align: center;
-  padding: 50px;
-  font-size: 1.2rem;
+  padding: 30px;
+  font-size: 1.1rem;
 }
 </style>
