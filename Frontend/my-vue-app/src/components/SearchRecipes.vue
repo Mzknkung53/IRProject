@@ -5,10 +5,12 @@ import axios from 'axios';
 
 const route = useRoute();
 const router = useRouter();
-// Reactive data
+
 const query = ref(sessionStorage.getItem('searchQuery') || '');
 const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]'));
 const recommendations = ref<any[]>([]);
+const topSearches = ref<any[]>([]);  // 🔥 NEW
+
 const resultsPerPage = 10;
 const columnsPerRow = 5;
 const totalRecipesCount = ref(0);
@@ -20,7 +22,7 @@ const loggedInUsername = ref<string | null>(null);
 const suggestedQuery = ref('');
 const showSuggestion = computed(() => !!suggestedQuery.value);
 
-// Helper to return a valid image URL or fallback placeholder
+// Get valid image URL
 const getImageUrl = (image: string | string[]) => {
   if (!image) return "https://via.placeholder.com/150";
   if (Array.isArray(image)) {
@@ -29,7 +31,7 @@ const getImageUrl = (image: string | string[]) => {
   return image;
 };
 
-// Clear Search Button Functionality
+// Clear Search
 const clearSearch = () => {
   query.value = '';
   recipes.value = [];
@@ -39,16 +41,29 @@ const clearSearch = () => {
   sessionStorage.removeItem('currentPage');
 };
 
-// Show recommendations if there's no search query; otherwise empty
+// Compute whether to show recommendations
 const recommendedDisplay = computed(() => {
-  if (!query.value) {
-    return recommendations.value;
-  } else {
-    return [];
-  }
+  if (!query.value) return recommendations.value;
+  return [];
 });
 
-// Fetch recommendations from the backend (/recommendations)
+// 🔥 Fetch Top 5 Searches
+const fetchTopSearches = async () => {
+  try {
+    const response = await axios.get('http://127.0.0.1:5000/top-searches');
+    topSearches.value = response.data.top_searches || [];
+  } catch (error) {
+    console.error("Error fetching top searches:", error);
+  }
+};
+
+// 🔥 Click Top Search Button
+const searchFromTopQuery = (queryStr: string) => {
+  query.value = queryStr;
+  searchRecipes();
+};
+
+// Fetch Recommendations
 const fetchRecommendations = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -61,7 +76,7 @@ const fetchRecommendations = async () => {
   }
 };
 
-// Fetch search results from /search
+// Search Recipes from backend
 const searchRecipes = async () => {
   if (!loggedInUsername.value) {
     router.push('/login');
@@ -73,11 +88,7 @@ const searchRecipes = async () => {
     const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}&page=${currentPage.value}`);
     recipes.value = response.data.results;
     totalRecipesCount.value = response.data.total_count;
-
-    // Set suggestion if available
     suggestedQuery.value = response.data.suggested_query || '';
-    console.log("Suggested Query from backend:", suggestedQuery.value);  // 🟡 Log here
-
     errorMessage.value = '';
 
     sessionStorage.setItem('searchQuery', query.value);
@@ -86,18 +97,16 @@ const searchRecipes = async () => {
   } catch (error: any) {
     recipes.value = [];
     totalRecipesCount.value = 0;
-
     if (error.response?.data?.suggested_query) {
       suggestedQuery.value = error.response.data.suggested_query;
-      console.log("Suggested Query from backend (error):", suggestedQuery.value);  // 🟡 Log here too
     } else {
       suggestedQuery.value = '';
     }
-
     errorMessage.value = error.response?.data?.error || 'Error fetching recipes.';
   }
 };
 
+// Use suggestion
 const useSuggestedQuery = () => {
   query.value = suggestedQuery.value;
   suggestedQuery.value = '';
@@ -105,18 +114,19 @@ const useSuggestedQuery = () => {
   searchRecipes();
 };
 
+// Ignore suggestion
 const ignoreSuggestion = () => {
   suggestedQuery.value = '';
   errorMessage.value = '';
 };
 
-// Paginate recipes
+// Paginate
 const paginatedResults = computed(() => {
   const start = (currentPage.value - 1) * resultsPerPage;
   return recipes.value.slice(start, start + resultsPerPage);
 });
 
-// Split paginated results into rows
+// Chunk for rows
 const chunkedResults = computed(() => {
   const chunks = [];
   for (let i = 0; i < paginatedResults.value.length; i += columnsPerRow) {
@@ -125,19 +135,19 @@ const chunkedResults = computed(() => {
   return chunks;
 });
 
-// Helper to truncate text
+// Truncate
 const truncateText = (text: string, limit: number) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
-// Change page (next/previous)
+// Page change
 const changePage = (step: number) => {
   currentPage.value += step;
   sessionStorage.setItem('currentPage', currentPage.value.toString());
   router.push(`/page/${currentPage.value}`);
 };
 
-// Logout function
+// Logout
 const logout = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -153,14 +163,14 @@ const logout = async () => {
   }
 };
 
-// Watch for route changes to update current page
+// Watch route page changes
 watch(() => route.params.pageNumber, (newPage) => {
   if (newPage) {
     currentPage.value = parseInt(newPage as string);
   }
 });
 
-// On mount
+// On mount: get username, recs, top 5
 onMounted(() => {
   const storedUsername = localStorage.getItem('username');
   if (storedUsername) {
@@ -169,9 +179,8 @@ onMounted(() => {
     router.push('/login');
     return;
   }
-  // Always fetch recommendations
   fetchRecommendations();
-  // If there's a stored query but no recipes, fetch them
+  fetchTopSearches();  // 🔥
   if (query.value && recipes.value.length === 0) {
     searchRecipes();
   }
@@ -198,12 +207,29 @@ onMounted(() => {
   </nav>
 
   <div class="container">
-    <!-- Recommendations Section: Only displays if there is no search query -->
+    <!-- 🔍 Move Search Bar to Top -->
+    <div class="search-bar">
+      <input v-model="query" type="text" placeholder="Search for recipes..." />
+      <button @click="searchRecipes">Search</button>
+      <button class="clear-button" @click="clearSearch">Clear</button>
+    </div>
+
+    <!-- 🔥 Top 5 Searches -->
+    <section v-if="topSearches.length && !query" class="top-searches-section">
+      <h2>Top Searches</h2>
+      <ul class="top-search-list">
+        <li v-for="item in topSearches" :key="item.query">
+          <button class="top-search-button" @click="searchFromTopQuery(item.query)">
+            {{ item.query }} ({{ item.count }} times)
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Recommendations -->
     <section class="recommendations-section" v-if="recommendedDisplay.length">
       <h2>Recommended for You</h2>
-      <button class="refresh-button" @click="fetchRecommendations">
-        Refresh Recommendations
-      </button>
+      <button class="refresh-button" @click="fetchRecommendations">Refresh Recommendations</button>
       <div class="recommendation-grid">
         <div v-for="rec in recommendedDisplay" :key="rec.recipe_id" class="recipe-card">
           <img :src="getImageUrl(rec.image_url)" :alt="rec.name" />
@@ -219,32 +245,22 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- Search Bar -->
-    <div class="search-bar">
-      <input v-model="query" type="text" placeholder="Search for recipes..." />
-      <button @click="searchRecipes">Search</button>
-      <button class="clear-button" @click="clearSearch">Clear</button>
-    </div>
-
+    <!-- Suggestions -->
     <div v-if="showSuggestion" class="suggestion-box">
       <p>
-        Did you mean
-        <span class="suggested-text">"{{ suggestedQuery }}"</span>?
+        Did you mean <span class="suggested-text">"{{ suggestedQuery }}"</span>?
       </p>
       <button @click="useSuggestedQuery">Use Suggestion</button>
       <button class="ignore-button" @click="ignoreSuggestion">Ignore</button>
     </div>
 
-
-
-    <!-- Error Message -->
+    <!-- Error -->
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-    <!-- Search Results Section -->
+    <!-- Results -->
     <div v-if="recipes.length > 0" class="results">
       <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
-        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`"
-          class="recipe-card">
+        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`" class="recipe-card">
           <img :src="getImageUrl(recipe.image_url)" :alt="recipe.name" />
           <div class="recipe-details">
             <h3 class="recipe-title">{{ truncateText(recipe.name, maxTitleLength) }}</h3>
@@ -258,16 +274,11 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Pagination Controls -->
+    <!-- Pagination -->
     <div v-if="recipes.length > 0" class="pagination">
-      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">
-        Previous
-      </button>
+      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">Previous</button>
       <span>Page {{ currentPage }}</span>
-      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount"
-        class="pagination-button">
-        Next
-      </button>
+      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount" class="pagination-button">Next</button>
     </div>
   </div>
 </template>
@@ -600,4 +611,33 @@ button:hover {
 .ignore-button:hover {
   background-color: darkgray;
 }
+
+.top-searches-section {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.top-search-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.top-search-button {
+  background-color: white;
+  color: red;
+  border: 2px solid red;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.top-search-button:hover {
+  background-color: red;
+  color: white;
+}
+
 </style>
