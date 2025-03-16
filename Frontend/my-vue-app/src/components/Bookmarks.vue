@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const folders = ref<any[]>([]);
 const errorMessage = ref('');
 
-// Fetch user's bookmarks
+// Go to Home Page
+const goHome = () => {
+  router.push('/page/1');
+};
+
+// Fetch bookmarks
 const fetchBookmarks = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -18,7 +25,7 @@ const fetchBookmarks = async () => {
   }
 };
 
-// Delete a single recipe from a folder
+// Delete bookmark
 const deleteBookmark = async (folderId: number, recipeId: number) => {
   try {
     const token = localStorage.getItem('token');
@@ -26,15 +33,13 @@ const deleteBookmark = async (folderId: number, recipeId: number) => {
       headers: { Authorization: `Bearer ${token}` },
       data: { folder_id: folderId, recipe_id: recipeId },
     });
-
-    // Refresh the bookmark list
     fetchBookmarks();
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Failed to delete bookmark.';
   }
 };
 
-// Delete an entire folder and all recipes inside
+// Delete folder
 const deleteFolder = async (folderId: number) => {
   try {
     const token = localStorage.getItem('token');
@@ -42,23 +47,18 @@ const deleteFolder = async (folderId: number) => {
       headers: { Authorization: `Bearer ${token}` },
       data: { folder_id: folderId },
     });
-
-    // Refresh the bookmark list
     fetchBookmarks();
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Failed to delete folder.';
   }
 };
 
+// Image helper
 const getRecipeImage = (image: string | string[]) => {
-  console.log("Image URL Received:", image); // Debugging
-
-  if (!image) return "https://via.placeholder.com/100"; // 🔥 Handle missing image case
-
+  if (!image) return "https://via.placeholder.com/100";
   if (Array.isArray(image)) {
     return image.length > 0 ? image[0] : "https://via.placeholder.com/100";
   }
-
   return image;
 };
 
@@ -69,6 +69,9 @@ onMounted(() => {
 
 <template>
   <div class="bookmarks-page">
+    <!-- HOME Button -->
+    <button class="home-button" @click="goHome">🏠 Home</button>
+
     <h1>Your Bookmarks</h1>
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
@@ -82,28 +85,30 @@ onMounted(() => {
           <!-- Folder Header -->
           <div class="folder-header">
             <h2 class="folder-title">{{ folder.folder_name }}</h2>
-            <button class="delete-folder" @click="deleteFolder(folder.folder_id)">
-              🗑 Delete Folder
-            </button>
+            <div class="folder-actions">
+              <!-- Suggest List -->
+              <router-link :to="`/suggestions/${folder.folder_id}`" class="suggest-button">
+                💡 Suggest List
+              </router-link>
+
+              <!-- Delete Folder -->
+              <button class="delete-folder" @click="deleteFolder(folder.folder_id)">
+                🗑 Delete Folder
+              </button>
+            </div>
           </div>
 
-          <!-- Recipe List -->
+          <!-- Recipes -->
           <ul class="recipe-list">
             <li v-for="recipe in folder.recipes" :key="recipe.recipe_id" class="recipe-item">
-              <!-- Recipe Image -->
-              <img :src="getRecipeImage(recipe.image_url)" 
-                   :alt="recipe.name" 
-                   class="recipe-image" />
+              <img :src="getRecipeImage(recipe.image_url)" :alt="recipe.name" class="recipe-image" />
 
-              <!-- Recipe Details -->
               <div class="recipe-info">
                 <router-link :to="`/recipe/${recipe.recipe_id}`" class="recipe-link">
-                  Recipe ID: {{ recipe.recipe_id }}, 
-                  Rating: ⭐ {{ recipe.rating }}
+                  Recipe ID: {{ recipe.recipe_id }}, Rating: ⭐ {{ recipe.rating }}
                 </router-link>
               </div>
 
-              <!-- Remove Individual Recipe -->
               <button class="delete-button" @click="deleteBookmark(folder.folder_id, recipe.recipe_id)">
                 ❌ Remove
               </button>
@@ -116,7 +121,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Page Container */
 .bookmarks-page {
   max-width: 800px;
   margin: auto;
@@ -124,13 +128,26 @@ onMounted(() => {
   padding: 20px;
 }
 
-/* Error message */
+.home-button {
+  background-color: #007bff;
+  color: white;
+  border-radius: 5px;
+  font-weight: bold;
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  cursor: pointer;
+  border: none;
+}
+
+.home-button:hover {
+  background-color: #0056b3;
+}
+
 .error-message {
   color: red;
   font-weight: bold;
 }
 
-/* Folder container */
 .folders-container {
   display: flex;
   flex-direction: column;
@@ -138,7 +155,6 @@ onMounted(() => {
   margin-top: 20px;
 }
 
-/* Folder box */
 .folder-box {
   background: #f8f8f8;
   border-radius: 10px;
@@ -148,14 +164,33 @@ onMounted(() => {
   position: relative;
 }
 
-/* Folder header */
 .folder-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-/* Delete folder button */
+.suggest-button {
+  background-color: #28a745;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: bold;
+  margin-right: 10px;
+  font-size: 14px;
+}
+
+.suggest-button:hover {
+  background-color: #218838;
+}
+
+.folder-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .delete-folder {
   background: red;
   color: white;
@@ -171,13 +206,12 @@ onMounted(() => {
   background: darkred;
 }
 
-/* Recipe list */
 .recipe-list {
   list-style: none;
   padding: 0;
+  margin-top: 10px;
 }
 
-/* Recipe item */
 .recipe-item {
   display: flex;
   align-items: center;
@@ -193,7 +227,6 @@ onMounted(() => {
   background: #ececec;
 }
 
-/* Recipe Image */
 .recipe-image {
   width: 60px;
   height: 60px;
@@ -202,12 +235,10 @@ onMounted(() => {
   margin-right: 10px;
 }
 
-/* Recipe Info */
 .recipe-info {
   flex-grow: 1;
 }
 
-/* Recipe Link */
 .recipe-link {
   text-decoration: none;
   color: #007bff;
@@ -218,7 +249,6 @@ onMounted(() => {
   text-decoration: underline;
 }
 
-/* Delete recipe button */
 .delete-button {
   background: none;
   border: 2px solid red;

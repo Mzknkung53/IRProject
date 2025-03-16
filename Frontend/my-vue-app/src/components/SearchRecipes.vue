@@ -5,12 +5,10 @@ import axios from 'axios';
 
 const route = useRoute();
 const router = useRouter();
-
 // Reactive data
 const query = ref(sessionStorage.getItem('searchQuery') || '');
 const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]'));
 const recommendations = ref<any[]>([]);
-
 const resultsPerPage = 10;
 const columnsPerRow = 5;
 const totalRecipesCount = ref(0);
