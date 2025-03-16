@@ -19,9 +19,8 @@ const maxDescriptionLength = 100;
 const maxTitleLength = 40;
 const errorMessage = ref('');
 const loggedInUsername = ref<string | null>(null);
-
-// For demonstration, a selected folder ID (adjust as needed)
-const selectedFolderId = ref('default-folder'); 
+const suggestedQuery = ref('');
+const showSuggestion = computed(() => !!suggestedQuery.value);
 
 // Helper to return a valid image URL or fallback placeholder
 const getImageUrl = (image: string | string[]) => {
@@ -32,7 +31,17 @@ const getImageUrl = (image: string | string[]) => {
   return image;
 };
 
-// Computed property: Show full recommendations if there's no search query, otherwise return an empty array.
+// Clear Search Button Functionality
+const clearSearch = () => {
+  query.value = '';
+  recipes.value = [];
+  totalRecipesCount.value = 0;
+  sessionStorage.removeItem('searchQuery');
+  sessionStorage.removeItem('searchResults');
+  sessionStorage.removeItem('currentPage');
+};
+
+// Show recommendations if there's no search query; otherwise empty
 const recommendedDisplay = computed(() => {
   if (!query.value) {
     return recommendations.value;
@@ -41,7 +50,7 @@ const recommendedDisplay = computed(() => {
   }
 });
 
-// Fetch recommendations from the backend
+// Fetch recommendations from the backend (/recommendations)
 const fetchRecommendations = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -61,17 +70,46 @@ const searchRecipes = async () => {
     return;
   }
   if (!query.value) return;
+
   try {
     const response = await axios.get(`http://127.0.0.1:5000/search?q=${query.value}&page=${currentPage.value}`);
     recipes.value = response.data.results;
     totalRecipesCount.value = response.data.total_count;
+
+    // Set suggestion if available
+    suggestedQuery.value = response.data.suggested_query || '';
+    console.log("Suggested Query from backend:", suggestedQuery.value);  // 🟡 Log here
+
+    errorMessage.value = '';
+
     sessionStorage.setItem('searchQuery', query.value);
     sessionStorage.setItem('searchResults', JSON.stringify(recipes.value));
     sessionStorage.setItem('currentPage', currentPage.value.toString());
-  } catch (error) {
-    errorMessage.value = 'Error fetching recipes.';
-    console.error('Error fetching recipes:', error);
+  } catch (error: any) {
+    recipes.value = [];
+    totalRecipesCount.value = 0;
+
+    if (error.response?.data?.suggested_query) {
+      suggestedQuery.value = error.response.data.suggested_query;
+      console.log("Suggested Query from backend (error):", suggestedQuery.value);  // 🟡 Log here too
+    } else {
+      suggestedQuery.value = '';
+    }
+
+    errorMessage.value = error.response?.data?.error || 'Error fetching recipes.';
   }
+};
+
+const useSuggestedQuery = () => {
+  query.value = suggestedQuery.value;
+  suggestedQuery.value = '';
+  errorMessage.value = '';
+  searchRecipes();
+};
+
+const ignoreSuggestion = () => {
+  suggestedQuery.value = '';
+  errorMessage.value = '';
 };
 
 // Paginate recipes
@@ -115,12 +153,6 @@ const logout = async () => {
   } catch (error) {
     console.error('Logout error:', error);
   }
-};
-
-// Button to navigate to the Suggestions page
-const goToSuggestions = () => {
-  // Navigate to '/suggestions' route and pass selectedFolderId as a query parameter
-  router.push({ path: '/suggestions', query: { folder_id: selectedFolderId.value } });
 };
 
 // Watch for route changes to update current page
@@ -171,6 +203,9 @@ onMounted(() => {
     <!-- Recommendations Section: Only displays if there is no search query -->
     <section class="recommendations-section" v-if="recommendedDisplay.length">
       <h2>Recommended for You</h2>
+      <button class="refresh-button" @click="fetchRecommendations">
+        Refresh Recommendations
+      </button>
       <div class="recommendation-grid">
         <div v-for="rec in recommendedDisplay" :key="rec.recipe_id" class="recipe-card">
           <img :src="getImageUrl(rec.image_url)" :alt="rec.name" />
@@ -186,17 +221,23 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- Buttons for Suggestions -->
-    <div class="suggestions-buttons">
-      <button @click="fetchRecommendations" class="refresh-button">Refresh Suggestions</button>
-      <button @click="goToSuggestions" class="goto-button">Get Suggestions</button>
-    </div>
-
     <!-- Search Bar -->
     <div class="search-bar">
       <input v-model="query" type="text" placeholder="Search for recipes..." />
       <button @click="searchRecipes">Search</button>
+      <button class="clear-button" @click="clearSearch">Clear</button>
     </div>
+
+    <div v-if="showSuggestion" class="suggestion-box">
+      <p>
+        Did you mean
+        <span class="suggested-text">"{{ suggestedQuery }}"</span>?
+      </p>
+      <button @click="useSuggestedQuery">Use Suggestion</button>
+      <button class="ignore-button" @click="ignoreSuggestion">Ignore</button>
+    </div>
+
+
 
     <!-- Error Message -->
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
@@ -204,7 +245,8 @@ onMounted(() => {
     <!-- Search Results Section -->
     <div v-if="recipes.length > 0" class="results">
       <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
-        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`" class="recipe-card">
+        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`"
+          class="recipe-card">
           <img :src="getImageUrl(recipe.image_url)" :alt="recipe.name" />
           <div class="recipe-details">
             <h3 class="recipe-title">{{ truncateText(recipe.name, maxTitleLength) }}</h3>
@@ -220,9 +262,14 @@ onMounted(() => {
 
     <!-- Pagination Controls -->
     <div v-if="recipes.length > 0" class="pagination">
-      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">Previous</button>
+      <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">
+        Previous
+      </button>
       <span>Page {{ currentPage }}</span>
-      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount" class="pagination-button">Next</button>
+      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount"
+        class="pagination-button">
+        Next
+      </button>
     </div>
   </div>
 </template>
@@ -236,7 +283,8 @@ body {
 /* Container */
 .container {
   max-width: 1100px;
-  margin: 80px auto 0 auto; /* 80px top margin to avoid fixed navbar overlap */
+  margin: 80px auto 0 auto;
+  /* 80px top margin to avoid fixed navbar overlap */
   text-align: center;
   padding: 0 20px;
 }
@@ -271,27 +319,71 @@ button:hover {
   background-color: darkred;
 }
 
-/* Suggestions Buttons */
-.suggestions-buttons {
+/* Recommendations Section */
+.recommendations-section {
   margin-bottom: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 15px;
+  text-align: left;
 }
 
-.refresh-button,
-.goto-button {
-  padding: 10px 15px;
+.refresh-button {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: none;
   background-color: red;
   color: white;
-  border: none;
   border-radius: 5px;
+  font-weight: bold;
   cursor: pointer;
 }
 
-.refresh-button:hover,
-.goto-button:hover {
+.refresh-button:hover {
   background-color: darkred;
+}
+
+.recommendation-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.recommendation-grid .recipe-card {
+  flex: 1 1 calc(20% - 20px);
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease-in-out;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.recommendation-grid .recipe-card:hover {
+  transform: scale(1.05);
+}
+
+.recommendation-grid .recipe-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.recommendation-grid .recipe-details {
+  padding: 10px;
+}
+
+.recommendation-grid .recipe-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.recommendation-grid .recipe-description {
+  font-size: 0.9em;
+  margin-bottom: 5px;
 }
 
 /* Results */
@@ -359,10 +451,6 @@ button:hover {
   overflow: hidden;
 }
 
-.short-text {
-  display: inline;
-}
-
 /* Pagination */
 .pagination {
   margin-top: 40px;
@@ -427,7 +515,8 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-right: 2rem; /* moves user/logout left */
+  margin-right: 2rem;
+  /* moves user/logout left */
 }
 
 .username {
@@ -483,49 +572,34 @@ button:hover {
   background-color: #f0f0f0;
 }
 
-/* Recommendation Grid */
-.recommendation-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 20px;
+.clear-button {
+  background-color: gray;
 }
 
-.recommendation-grid .recipe-card {
-  flex: 1 1 calc(20% - 20px);
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-  transition: transform 0.3s ease-in-out;
-  cursor: pointer;
-  text-decoration: none;
-  color: inherit;
+.clear-button:hover {
+  background-color: darkgray;
 }
 
-.recommendation-grid .recipe-card:hover {
-  transform: scale(1.05);
-}
-
-.recommendation-grid .recipe-card img {
-  width: 100%;
-  height: 150px;
-  object-fit: cover;
-}
-
-.recommendation-grid .recipe-details {
+.suggestion-box {
+  margin: 10px auto;
   padding: 10px;
+  background-color: #fff8e1;
+  border: 1px solid #ffd54f;
+  border-radius: 5px;
+  width: fit-content;
 }
 
-.recommendation-grid .recipe-title {
-  font-size: 1.1em;
+.suggested-text {
   font-weight: bold;
-  margin-bottom: 5px;
+  color: #f57c00;
 }
 
-.recommendation-grid .recipe-description {
-  font-size: 0.9em;
-  margin-bottom: 5px;
+.ignore-button {
+  background-color: gray;
+  margin-left: 8px;
+}
+
+.ignore-button:hover {
+  background-color: darkgray;
 }
 </style>
