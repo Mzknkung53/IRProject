@@ -13,7 +13,11 @@ const rating = ref(5);
 const successMessage = ref('');
 const errorMessage = ref('');
 
-// Fetch recipe details from backend
+// ✅ Toast Notification State
+const showToast = ref(false);
+const toastMessage = ref('');
+
+// Fetch recipe details
 const fetchRecipeDetails = async (recipeId: string) => {
   recipe.value = null;
   try {
@@ -29,9 +33,7 @@ onMounted(() => {
 });
 
 watch(() => route.params.id, (newId) => {
-  if (newId) {
-    fetchRecipeDetails(newId as string);
-  }
+  if (newId) fetchRecipeDetails(newId as string);
 });
 
 // Toggle Bookmark Modal
@@ -45,7 +47,7 @@ const toggleBookmarkModal = () => {
   }
 };
 
-// POST to /bookmark
+// ✅ Add Bookmark and Show Toast
 const addBookmark = async () => {
   if (!recipe.value) return;
   if (!folderName.value.trim()) {
@@ -66,16 +68,25 @@ const addBookmark = async () => {
 
     successMessage.value = response.data.message || 'Bookmark added!';
     errorMessage.value = '';
+    showBookmarkModal.value = false;  // ✅ Close modal
+
+    // ✅ Show toast
+    toastMessage.value = successMessage.value;
+    showToast.value = true;
+    setTimeout(() => {
+      showToast.value = false;
+      toastMessage.value = '';
+    }, 3000);
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Error adding bookmark.';
     console.error('Bookmark error:', err);
   }
 };
 
-// Close modal when overlay clicked
+// Close modal if overlay clicked
 const closeModalIfOverlayClicked = (event: MouseEvent) => {
   if ((event.target as HTMLElement).classList.contains('modal-overlay')) {
-    router.back();  // Close modal by going back
+    router.back();
   }
 };
 </script>
@@ -89,7 +100,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
         <div class="section-image">
           <img :src="recipe.image_url" alt="Recipe Image" class="recipe-image" />
         </div>
-
 
         <h1 class="recipe-title">{{ recipe.name }}</h1>
         <div class="info-row">
@@ -115,7 +125,7 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
       </div>
     </div>
 
-    <!-- Bookmark Modal Inside -->
+    <!-- ✅ Bookmark Modal -->
     <div v-if="showBookmarkModal" class="bookmark-modal-overlay" @click="closeModalIfOverlayClicked">
       <div class="bookmark-modal-content" @click.stop>
         <h2>Add Bookmark</h2>
@@ -140,12 +150,17 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
         </div>
       </div>
     </div>
+
+    <!-- ✅ Toast Notification -->
+    <div v-if="showToast" class="toast">
+      {{ toastMessage }}
+    </div>
   </div>
 </template>
 
 
 <style scoped>
-/* Overlay for modal effect */
+/* Overlay */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -161,21 +176,19 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   padding: 20px;
 }
 
-/* Main modal card */
 .modal-card {
   background: white;
   border-radius: 10px;
   max-width: 700px;
   width: 100%;
-  max-height: 90vh;         /* 🔥 Prevent overflow beyond screen */
-  overflow-y: auto;         /* 🔥 Scroll if content too long */
-  padding: 25px 25px 25px 25px;
-  padding-top: 40px;        /* Space for close button */
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 25px;
+  padding-top: 40px;
   position: relative;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* Close button */
 .close-button {
   position: absolute;
   top: 12px;
@@ -187,25 +200,23 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   z-index: 1001;
 }
 
-/* Image Styling */
 .section-image {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 20px;  /* Push content down */
+  margin-top: 20px;
 }
 
 .recipe-image {
-  width: 250px;            /* 🔥 Fixed width */
-  height: 200px;           /* 🔥 Fixed height */
+  width: 250px;
+  height: 200px;
   border-radius: 10px;
-  object-fit: cover;       /* Maintain aspect ratio */
-  margin: 20px auto;       /* Center and space */
+  object-fit: cover;
+  margin: 20px auto;
   display: block;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Title and Info */
 .recipe-title {
   font-size: 1.8rem;
   color: #2c3e50;
@@ -228,7 +239,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   margin-bottom: 15px;
 }
 
-/* Instructions */
 .instructions-list {
   padding-left: 20px;
   color: #444;
@@ -236,7 +246,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   margin-bottom: 20px;
 }
 
-/* Bookmark Button */
 .bookmark-button {
   background-color: #f44336;
   color: white;
@@ -253,7 +262,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   background-color: #c62828;
 }
 
-/* Bookmark Modal */
 .bookmark-modal-overlay {
   position: fixed;
   top: 0;
@@ -277,7 +285,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
-/* Form Elements */
 .form-group {
   margin-bottom: 15px;
 }
@@ -297,7 +304,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   border-radius: 5px;
 }
 
-/* Modal Buttons */
 .modal-buttons {
   display: flex;
   justify-content: space-between;
@@ -332,7 +338,6 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   background-color: #c62828;
 }
 
-/* Success/Error Messages */
 .success {
   color: green;
   text-align: center;
@@ -345,10 +350,34 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
   margin-top: 10px;
 }
 
-/* Loading */
 .loading-message {
   text-align: center;
   padding: 30px;
   font-size: 1.1rem;
+}
+
+/* ✅ Toast Style */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  font-weight: bold;
+  z-index: 9999;
+  animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeout {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(10px); }
 }
 </style>

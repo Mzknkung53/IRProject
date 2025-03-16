@@ -75,7 +75,12 @@ onMounted(fetchSuggestions);
 
     <!-- Suggestions Grid -->
     <div v-if="suggestions.length" class="suggestion-grid">
-      <div v-for="recipe in suggestions" :key="recipe.recipe_id" class="recipe-card">
+      <router-link
+        v-for="recipe in suggestions"
+        :key="recipe.recipe_id"
+        :to="`/recipe/${recipe.recipe_id}`"
+        class="recipe-card"
+      >
         <img :src="getImageUrl(recipe.image_url)" :alt="recipe.name" />
         <div class="recipe-details">
           <h3 class="recipe-title">{{ truncateText(recipe.name, maxTitleLength) }}</h3>
@@ -85,52 +90,56 @@ onMounted(fetchSuggestions);
             <strong>Rating:</strong> ⭐ {{ recipe.rating > 0 ? recipe.rating.toFixed(1) : 'N/A' }}
           </p>
         </div>
-      </div>
+      </router-link>
     </div>
   </div>
 </template>
 
 <style scoped>
 .container {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 80px auto 0 auto;
   text-align: center;
   padding: 0 20px;
 }
 
 .title {
-  font-size: 2em;
+  font-size: 2.5em;
   font-weight: bold;
   margin-bottom: 20px;
+  background: linear-gradient(to right, #ff416c, #ff4b2b);
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 .button-group {
   display: flex;
   justify-content: center;
   gap: 15px;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
 .nav-button {
-  background-color: gray;
+  background-color: #6c757d;
   color: white;
-  border-radius: 5px;
+  border-radius: 8px;
   font-weight: bold;
-  padding: 10px 15px;
+  padding: 10px 20px;
   cursor: pointer;
   border: none;
+  transition: background-color 0.3s ease;
 }
 
 .nav-button:hover {
-  background-color: darkgray;
+  background-color: #5a6268;
 }
 
 .nav-button.home {
-  background-color: #007bff;
+  background-color: #28a745;
 }
 
 .nav-button.home:hover {
-  background-color: #0056b3;
+  background-color: #218838;
 }
 
 .loading {
@@ -142,55 +151,63 @@ onMounted(fetchSuggestions);
 .error {
   color: red;
   margin-top: 10px;
+  font-weight: bold;
 }
 
 .suggestion-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 20px;
   justify-content: center;
 }
 
 .recipe-card {
-  flex: 1 1 calc(20% - 20px);
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   background: #fff;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease-in-out;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+  position: relative;
 }
 
 .recipe-card:hover {
-  transform: scale(1.05);
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
 .recipe-card img {
   width: 100%;
-  height: 150px;
+  height: 160px;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.recipe-card:hover img {
+  transform: scale(1.05);
 }
 
 .recipe-details {
-  padding: 10px;
+  padding: 12px;
   text-align: left;
 }
 
 .recipe-title {
-  font-size: 1.1em;
+  font-size: 1.2em;
   font-weight: bold;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 
 .recipe-description {
-  font-size: 0.9em;
-  margin-bottom: 5px;
+  font-size: 0.95em;
+  margin-bottom: 8px;
+  color: #555;
 }
 
 .recipe-calories {
   font-size: 0.9em;
+  color: #444;
 }
 </style>

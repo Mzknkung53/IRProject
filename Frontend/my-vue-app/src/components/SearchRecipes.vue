@@ -31,6 +31,13 @@ const getImageUrl = (image: string | string[]) => {
   return image;
 };
 
+const maxAllowedPages = computed(() => {
+  return Math.min(
+    Math.ceil(totalRecipesCount.value / resultsPerPage),
+    Math.floor(100000 / resultsPerPage) // Elasticsearch max result window limit
+  );
+});
+
 // Clear Search
 const clearSearch = () => {
   query.value = '';
@@ -120,17 +127,11 @@ const ignoreSuggestion = () => {
   errorMessage.value = '';
 };
 
-// Paginate
-const paginatedResults = computed(() => {
-  const start = (currentPage.value - 1) * resultsPerPage;
-  return recipes.value.slice(start, start + resultsPerPage);
-});
-
 // Chunk for rows
 const chunkedResults = computed(() => {
   const chunks = [];
-  for (let i = 0; i < paginatedResults.value.length; i += columnsPerRow) {
-    chunks.push(paginatedResults.value.slice(i, i + columnsPerRow));
+  for (let i = 0; i < recipes.value.length; i += columnsPerRow) {
+    chunks.push(recipes.value.slice(i, i + columnsPerRow));
   }
   return chunks;
 });
@@ -142,10 +143,18 @@ const truncateText = (text: string, limit: number) => {
 
 // Page change
 const changePage = (step: number) => {
-  currentPage.value += step;
+  const newPage = currentPage.value + step;
+  const maxPages = maxAllowedPages.value;
+
+  if (newPage < 1 || newPage > maxPages) return;
+
+  currentPage.value = newPage;
   sessionStorage.setItem('currentPage', currentPage.value.toString());
-  router.push(`/page/${currentPage.value}`);
+
+  // 🔥 Update the URL route
+  router.push(`/page/${newPage}`);
 };
+
 
 // Logout
 const logout = async () => {
@@ -167,6 +176,8 @@ const logout = async () => {
 watch(() => route.params.pageNumber, (newPage) => {
   if (newPage) {
     currentPage.value = parseInt(newPage as string);
+    searchRecipes();  // 🔥 Fetches results for the new page
+    console.log("Route changed, fetching page:", currentPage.value, "Query:", query.value);
   }
 });
 
@@ -183,6 +194,7 @@ onMounted(() => {
   fetchTopSearches();  // 🔥
   if (query.value && recipes.value.length === 0) {
     searchRecipes();
+    console.log("Fetching page:", currentPage.value, "Query:", query.value);
   }
 });
 </script>
@@ -260,7 +272,8 @@ onMounted(() => {
     <!-- Results -->
     <div v-if="recipes.length > 0" class="results">
       <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
-        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`" class="recipe-card">
+        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`"
+          class="recipe-card">
           <img :src="getImageUrl(recipe.image_url)" :alt="recipe.name" />
           <div class="recipe-details">
             <h3 class="recipe-title">{{ truncateText(recipe.name, maxTitleLength) }}</h3>
@@ -278,7 +291,12 @@ onMounted(() => {
     <div v-if="recipes.length > 0" class="pagination">
       <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">Previous</button>
       <span>Page {{ currentPage }}</span>
-      <button @click="changePage(1)" :disabled="(currentPage * resultsPerPage) >= totalRecipesCount" class="pagination-button">Next</button>
+      <button @click="changePage(1)"
+        :disabled="currentPage >= maxAllowedPages || (currentPage * resultsPerPage) >= totalRecipesCount"
+        class="pagination-button">
+        Next
+      </button>
+
     </div>
   </div>
 </template>
@@ -639,5 +657,4 @@ button:hover {
   background-color: red;
   color: white;
 }
-
 </style>
