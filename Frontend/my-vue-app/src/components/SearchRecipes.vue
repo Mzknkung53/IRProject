@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
+import RecipeDetail from './RecipeDetail.vue'; // Import your modal
 
 const route = useRoute();
 const router = useRouter();
@@ -9,7 +10,7 @@ const router = useRouter();
 const query = ref(sessionStorage.getItem('searchQuery') || '');
 const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') || '[]'));
 const recommendations = ref<any[]>([]);
-const topSearches = ref<any[]>([]);  // 🔥 NEW
+const topSearches = ref<any[]>([]);
 
 const resultsPerPage = 10;
 const columnsPerRow = 5;
@@ -21,6 +22,21 @@ const errorMessage = ref('');
 const loggedInUsername = ref<string | null>(null);
 const suggestedQuery = ref('');
 const showSuggestion = computed(() => !!suggestedQuery.value);
+
+// --- Modal Logic ---
+const showModal = ref(false);
+const modalId = ref<string | null>(null);
+
+// Watch for modal query param
+watch(() => route.query.modal, (newModalId) => {
+  if (newModalId) {
+    modalId.value = newModalId as string;
+    showModal.value = true;
+  } else {
+    showModal.value = false;
+    modalId.value = null;
+  }
+});
 
 // Get valid image URL
 const getImageUrl = (image: string | string[]) => {
@@ -34,7 +50,7 @@ const getImageUrl = (image: string | string[]) => {
 const maxAllowedPages = computed(() => {
   return Math.min(
     Math.ceil(totalRecipesCount.value / resultsPerPage),
-    Math.floor(100000 / resultsPerPage) // Elasticsearch max result window limit
+    Math.floor(100000 / resultsPerPage)
   );
 });
 
@@ -54,7 +70,7 @@ const recommendedDisplay = computed(() => {
   return [];
 });
 
-// 🔥 Fetch Top 5 Searches
+// Fetch Top Searches
 const fetchTopSearches = async () => {
   try {
     const response = await axios.get('http://127.0.0.1:5000/top-searches');
@@ -64,7 +80,6 @@ const fetchTopSearches = async () => {
   }
 };
 
-// 🔥 Click Top Search Button
 const searchFromTopQuery = (queryStr: string) => {
   query.value = queryStr;
   searchRecipes();
@@ -113,7 +128,6 @@ const searchRecipes = async () => {
   }
 };
 
-// Use suggestion
 const useSuggestedQuery = () => {
   query.value = suggestedQuery.value;
   suggestedQuery.value = '';
@@ -121,13 +135,11 @@ const useSuggestedQuery = () => {
   searchRecipes();
 };
 
-// Ignore suggestion
 const ignoreSuggestion = () => {
   suggestedQuery.value = '';
   errorMessage.value = '';
 };
 
-// Chunk for rows
 const chunkedResults = computed(() => {
   const chunks = [];
   for (let i = 0; i < recipes.value.length; i += columnsPerRow) {
@@ -136,12 +148,10 @@ const chunkedResults = computed(() => {
   return chunks;
 });
 
-// Truncate
 const truncateText = (text: string, limit: number) => {
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
-// Page change
 const changePage = (step: number) => {
   const newPage = currentPage.value + step;
   const maxPages = maxAllowedPages.value;
@@ -151,12 +161,9 @@ const changePage = (step: number) => {
   currentPage.value = newPage;
   sessionStorage.setItem('currentPage', currentPage.value.toString());
 
-  // 🔥 Update the URL route
   router.push(`/page/${newPage}`);
 };
 
-
-// Logout
 const logout = async () => {
   try {
     const token = localStorage.getItem('token');
@@ -176,12 +183,11 @@ const logout = async () => {
 watch(() => route.params.pageNumber, (newPage) => {
   if (newPage) {
     currentPage.value = parseInt(newPage as string);
-    searchRecipes();  // 🔥 Fetches results for the new page
-    console.log("Route changed, fetching page:", currentPage.value, "Query:", query.value);
+    searchRecipes();
   }
 });
 
-// On mount: get username, recs, top 5
+// On mount
 onMounted(() => {
   const storedUsername = localStorage.getItem('username');
   if (storedUsername) {
@@ -191,10 +197,9 @@ onMounted(() => {
     return;
   }
   fetchRecommendations();
-  fetchTopSearches();  // 🔥
+  fetchTopSearches();
   if (query.value && recipes.value.length === 0) {
     searchRecipes();
-    console.log("Fetching page:", currentPage.value, "Query:", query.value);
   }
 });
 </script>
@@ -219,7 +224,7 @@ onMounted(() => {
   </nav>
 
   <div class="container">
-    <!-- 🔍 Move Search Bar to Top -->
+    <!-- 🔍 Search Bar -->
     <div class="search-bar">
       <input v-model="query" type="text" placeholder="Search for recipes..." />
       <button @click="searchRecipes">Search</button>
@@ -238,7 +243,7 @@ onMounted(() => {
       </ul>
     </section>
 
-    <!-- Recommendations -->
+    <!-- 🔥 Recommendations -->
     <section class="recommendations-section" v-if="recommendedDisplay.length">
       <h2>Recommended for You</h2>
       <button class="refresh-button" @click="fetchRecommendations">Refresh Recommendations</button>
@@ -257,7 +262,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- Suggestions -->
+    <!-- 💡 Suggestions -->
     <div v-if="showSuggestion" class="suggestion-box">
       <p>
         Did you mean <span class="suggested-text">"{{ suggestedQuery }}"</span>?
@@ -266,14 +271,19 @@ onMounted(() => {
       <button class="ignore-button" @click="ignoreSuggestion">Ignore</button>
     </div>
 
-    <!-- Error -->
+    <!-- ❌ Error Message -->
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-    <!-- Results -->
+    <!-- 🧾 Results Grid -->
     <div v-if="recipes.length > 0" class="results">
       <div class="recipe-row" v-for="(row, rowIndex) in chunkedResults" :key="rowIndex">
-        <router-link v-for="recipe in row" :key="recipe.recipe_id" :to="`/recipe/${recipe.recipe_id}`"
-          class="recipe-card">
+        <!-- ✅ Modal Trigger (router query) -->
+        <router-link
+          v-for="recipe in row"
+          :key="recipe.recipe_id"
+          :to="{ query: { ...$route.query, modal: recipe.recipe_id } }"
+          class="recipe-card"
+        >
           <img :src="getImageUrl(recipe.image_url)" :alt="recipe.name" />
           <div class="recipe-details">
             <h3 class="recipe-title">{{ truncateText(recipe.name, maxTitleLength) }}</h3>
@@ -287,18 +297,22 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Pagination -->
+    <!-- 📄 Pagination Controls -->
     <div v-if="recipes.length > 0" class="pagination">
       <button @click="changePage(-1)" :disabled="currentPage === 1" class="pagination-button">Previous</button>
       <span>Page {{ currentPage }}</span>
-      <button @click="changePage(1)"
+      <button
+        @click="changePage(1)"
         :disabled="currentPage >= maxAllowedPages || (currentPage * resultsPerPage) >= totalRecipesCount"
-        class="pagination-button">
+        class="pagination-button"
+      >
         Next
       </button>
-
     </div>
   </div>
+
+  <!-- ✅ Modal Component Render -->
+  <RecipeDetail v-if="showModal" :id="modalId" @close="router.push({ query: { ...$route.query, modal: undefined } })" />
 </template>
 
 <style scoped>

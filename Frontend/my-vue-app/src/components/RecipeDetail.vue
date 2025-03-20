@@ -13,6 +13,9 @@ const rating = ref(5);
 const successMessage = ref('');
 const errorMessage = ref('');
 
+const props = defineProps<{ id: string | null }>();
+const emit = defineEmits(['close']);
+
 // ✅ Toast Notification State
 const showToast = ref(false);
 const toastMessage = ref('');
@@ -29,12 +32,12 @@ const fetchRecipeDetails = async (recipeId: string) => {
 };
 
 onMounted(() => {
-  fetchRecipeDetails(route.params.id as string);
+  if (props.id) fetchRecipeDetails(props.id);
+});
+watch(() => props.id, (newId) => {
+  if (newId) fetchRecipeDetails(newId);
 });
 
-watch(() => route.params.id, (newId) => {
-  if (newId) fetchRecipeDetails(newId as string);
-});
 
 // Toggle Bookmark Modal
 const toggleBookmarkModal = () => {
@@ -86,7 +89,7 @@ const addBookmark = async () => {
 // Close modal if overlay clicked
 const closeModalIfOverlayClicked = (event: MouseEvent) => {
   if ((event.target as HTMLElement).classList.contains('modal-overlay')) {
-    router.back();
+    emit('close');
   }
 };
 </script>
@@ -94,7 +97,7 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
 <template>
   <div class="modal-overlay" @click="closeModalIfOverlayClicked">
     <div class="modal-card" @click.stop>
-      <button class="close-button" @click="router.back()">✖</button>
+      <button class="close-button" @click="emit('close')">✖</button>
 
       <div v-if="recipe" class="recipe-content">
         <div class="section-image">
@@ -372,12 +375,26 @@ const closeModalIfOverlayClicked = (event: MouseEvent) => {
 }
 
 @keyframes fadein {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeout {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(10px); }
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 </style>
