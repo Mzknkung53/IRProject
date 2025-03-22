@@ -39,6 +39,19 @@ const deleteBookmark = async (folderId: number, recipeId: number) => {
   }
 };
 
+// 🔥 Fetch Recommendations
+const fetchRecommendations = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get('http://127.0.0.1:5000/recommendations', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("Recommendations refreshed after folder deletion.");
+  } catch (error) {
+    console.error("Error fetching recommendations:", error);
+  }
+};
+
 // Delete folder
 const deleteFolder = async (folderId: number) => {
   try {
@@ -47,7 +60,13 @@ const deleteFolder = async (folderId: number) => {
       headers: { Authorization: `Bearer ${token}` },
       data: { folder_id: folderId },
     });
-    fetchBookmarks();
+
+    // 🔄 Refresh bookmarks after deletion
+    await fetchBookmarks();
+
+    // 🔥 Refresh recommendations after folder deletion
+    await fetchRecommendations();  // Add this line
+
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Failed to delete folder.';
   }
