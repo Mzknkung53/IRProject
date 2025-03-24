@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
+import RecipeDetail from './RecipeDetail.vue';  // ✅ Import the modal
 
 const router = useRouter();
+const route = useRoute();
+
 const folders = ref<any[]>([]);
 const errorMessage = ref('');
 
@@ -61,11 +64,8 @@ const deleteFolder = async (folderId: number) => {
       data: { folder_id: folderId },
     });
 
-    // 🔄 Refresh bookmarks after deletion
-    await fetchBookmarks();
-
-    // 🔥 Refresh recommendations after folder deletion
-    await fetchRecommendations();  // Add this line
+    await fetchBookmarks();      // 🔄 Refresh bookmarks
+    await fetchRecommendations(); // 🔄 Refresh recommendations
 
   } catch (err: any) {
     errorMessage.value = err.response?.data?.error || 'Failed to delete folder.';
@@ -80,6 +80,20 @@ const getRecipeImage = (image: string | string[]) => {
   }
   return image;
 };
+
+// ✅ Modal Logic
+const showModal = ref(false);
+const modalId = ref<string | null>(null);
+
+watch(() => route.query.modal, (newModalId) => {
+  if (newModalId) {
+    modalId.value = newModalId as string;
+    showModal.value = true;
+  } else {
+    showModal.value = false;
+    modalId.value = null;
+  }
+});
 
 onMounted(() => {
   fetchBookmarks();
@@ -123,7 +137,11 @@ onMounted(() => {
               <img :src="getRecipeImage(recipe.image_url)" :alt="recipe.name" class="recipe-image" />
 
               <div class="recipe-info">
-                <router-link :to="`/recipe/${recipe.recipe_id}`" class="recipe-link">
+                <!-- ✅ Open Modal with query -->
+                <router-link 
+                  :to="{ query: { ...$route.query, modal: recipe.recipe_id } }" 
+                  class="recipe-link"
+                >
                   Recipe ID: {{ recipe.recipe_id }}, Rating: ⭐ {{ recipe.rating }}
                 </router-link>
               </div>
@@ -136,6 +154,13 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- ✅ Recipe Detail Modal -->
+    <RecipeDetail 
+      v-if="showModal" 
+      :id="modalId" 
+      @close="router.push({ query: { ...$route.query, modal: undefined } })" 
+    />
   </div>
 </template>
 

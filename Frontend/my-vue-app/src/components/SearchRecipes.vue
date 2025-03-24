@@ -12,7 +12,7 @@ const recipes = ref<any[]>(JSON.parse(sessionStorage.getItem('searchResults') ||
 const recommendations = ref<any[]>([]);
 const topSearches = ref<any[]>([]);
 
-const resultsPerPage = 10;
+const resultsPerPage = 100;
 const columnsPerRow = 5;
 const totalRecipesCount = ref(0);
 const currentPage = ref(parseInt(route.params.pageNumber as string) || 1);
